@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const Product = require('../models/products')
 const multer = require('multer')
+const fs = require('fs')
 
 //image upload
 var storage = multer.diskStorage({
@@ -52,6 +53,79 @@ router.get('/',(req,res)=> {
 
 router.get("/add", (req,res)=>{
     res.render("add_products", { title: "Add products"})
+})
+
+router.get("/edit/:id",(req,res) => {
+    let id = req.params.id;
+    Product.findById(id, (err, product)=> {
+        if(err) {
+            res.redirect('/')
+        } else {
+            if(product == null){
+                res.redirect('/')
+            } else {
+                res.render('edit_products',{
+                    title: "Edit Product",
+                    product: product,
+                })
+            }
+        }
+    })
+})
+
+router.post('/update/:id', upload, (req,res)=>{
+    let id = req.params.id;
+    let new_image = '';
+    
+    if(req.file){
+        new_image = req.file.filename;
+        try{
+            fs.unlinkSync('./uploads/'+req.body.old_image)
+        } catch(err){
+            console.log(err);
+        }
+    } else {
+        new_image = req.body.old_image;
+    }
+
+    Product.findByIdAndUpdate(id, {
+        name: req.body.name,
+        description: req.body.description,
+        price: req.body.price,
+        image: new_image
+    }, (err,result)=>{
+        if(err){
+            res.json({ message: err.message, type: 'danger'})
+        } else {
+            req.session.message = {
+                type: 'success',
+                message : 'Product updated successfully!'
+            };
+            res.redirect('/');
+        }
+    })
+})
+
+router.get('/delete/:id',(req,res)=>{
+    let id = req.params.id;
+    Product.findByIdAndRemove(id, (err,result)=>{
+        if(result.image != ''){
+            try{
+                fs.unlinkSync('./uploads/'+result.image);
+            } catch(err){
+                console.log(err)
+            }
+        }
+        if(err){
+            err.json({message : err.message})
+        } else {
+            req.session.message = {
+                Type: 'info',
+                message: 'Product deleted successfully!'
+            };
+            res.redirect('/');
+        }
+    })
 })
 
 module.exports = router;
